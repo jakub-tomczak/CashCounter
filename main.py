@@ -36,6 +36,11 @@ def hsv2rgb(h, s, v):
     elif hi == 5: r, g, b = v, p, q
     return [r*255, g*255, b*255]
 
+
+def drawPlot(image):
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(10,10))
+    ax.imshow(image, cmap=plt.cm.gray)
+    plt.show()
 def lerp(start, stop, value):
     return start + (stop - start)*value
 
@@ -71,13 +76,14 @@ def findCenters(labeled, values):
     return labeled
 
 def contourDetector(image, threshold = .15):
-    gray = rgb2gray(image)
+    gray = rgb2gray(image)**.3
     sobelImage = filters.sobel(gray)
-    thresold = mp.dilation(colorThreshold(sobelImage, getMax(sobelImage)*threshold))
-
+    thresholded = mp.dilation(colorThreshold(sobelImage, getMax(sobelImage)*.15))
+    drawPlot(thresholded)
+    return 0
     #labeling contours
     #get labeled contours and num as a number of contours
-    labeled, num = measure.label(thresold, background=0, neighbors=8, return_num=True)
+    labeled, num = measure.label(thresholded, background=0, neighbors=8, return_num=True)
     imSize = len(labeled) * len(labeled[0])
 
     #unique - list of contours id
@@ -109,7 +115,7 @@ def processOne(number):
     filename = "1" #"samolot%02d" % number
     image = readImage(filename)
     contour = contourDetector(image)
-    displaySaveImage([contour], filename, resolution=100)
+    #displaySaveImage([contour], filename, resolution=100)
 
 def colorThreshold(image, t):
     processed = (image > t) * 1
@@ -121,7 +127,7 @@ def getMax(image):
     return maxV
 
 def readImage(name):
-    return  io.imread("data/{img}.jpg".format(img = name))
+    return  io.imread("data/{img}.JPG".format(img = name))
 
 def displaySaveImage(imgs, filename = "planes.png", resolution = 500):
     fig = figure(figsize=(20,20))

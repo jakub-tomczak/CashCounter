@@ -1,12 +1,14 @@
 from __future__ import division
 from pylab import *
-from skimage import io, filters
+from skimage import io, filters, feature, transform, draw
 import skimage.morphology as mp
 import skimage.measure as measure
+import matplotlib.patches as mpatches
 from skimage.color import rgb2gray
 
 import numpy as np
 from ipykernel.pylab.backend_inline import flush_figures
+from skimage.measure import regionprops
 
 '''
 http://scikit-image.org/docs/dev/user_guide/tutorial_segmentation.html
@@ -15,7 +17,7 @@ http://www.emgu.com/wiki/files/1.4.0.0/html/0ac8f298-48bc-3eee-88b7-d2deed2a285d
 http://scikit-image.org/docs/dev/auto_examples/features_detection/plot_template.html
 '''
 
-def hsv2rgb(h, s, v):
+def hsv2rgb(h, s, v, alpha = False):
     import math
     h = float(h)
     s = float(s)
@@ -34,8 +36,9 @@ def hsv2rgb(h, s, v):
     elif hi == 3: r, g, b = p, q, v
     elif hi == 4: r, g, b = t, p, v
     elif hi == 5: r, g, b = v, p, q
+    if alpha:
+        return [r*255, g*255, b*255, 255]
     return [r*255, g*255, b*255]
-
 
 def drawPlot(image):
     fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(10,10))
@@ -75,50 +78,53 @@ def findCenters(labeled, values):
 
     return labeled
 
-def contourDetector(image, threshold = .15):
-    gray = rgb2gray(image)**.3
-    sobelImage = filters.sobel(gray)
-    thresholded = mp.dilation(colorThreshold(sobelImage, getMax(sobelImage)*.15))
-    drawPlot(thresholded)
-    return 0
-    #labeling contours
-    #get labeled contours and num as a number of contours
-    labeled, num = measure.label(thresholded, background=0, neighbors=8, return_num=True)
-    imSize = len(labeled) * len(labeled[0])
 
-    #unique - list of contours id
+
+def detector_canny(image):
+    gray = rgb2gray(image)
+
+    canny = feature.canny(gray, sigma=1.4)
+    labeled, num = measure.label(canny, return_num = True)
+
     unique, counts = np.unique(labeled, return_counts=True)
     values = dict(zip(unique, counts))
-    #remove contours that have less than .05% of total image pixels
+    imSize = len(labeled) * len(labeled[0])
     labeled = [[ (values[value] > imSize*0.0005)*value for value in row] for row in labeled]
 
-    #finding centers
-    #iterate over all contours and find centers of contours
-    labeled = findCenters(labeled, values)
-
-    #rewrite labeled values colored with hsv2rgb
     for row in range(0, len(labeled)):
         for i in range(0, len(labeled[row])):
             if labeled[row][i] > 0: # ommit background
-                    image[row][i] = hsv2rgb(lerp(120, 360 , labeled[row][i]/(num+1)), 1, 1)    #num+1 since we have another color for point
+                    image[row][i] = hsv2rgb(lerp(120, 360 , labeled[row][i]/num), 1, 1, len(image[row][i]) > 3)
 
-    return image
 
-def processAll(threshold = .15):
-    lastFileIndex = 20
-    images = [readImage("samolot%02d" % i) for i in range(0, lastFileIndex+ 1)]
-    contours = [contourDetector(image) for image in images]
-    displaySaveImage(contours, "planes_t{}.png".format(threshold))
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.imshow(image)
 
+    for region in regionprops(labeled):
+
+        minr, minc, maxr, maxc = region.bbox
+        if abs((maxr-minr) - (maxc-minc)) > 20:
+            continue
+        rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
+                                      fill=False, edgecolor='red', linewidth=2)
+        ax.add_patch(rect)
+
+    ax.set_axis_off()
+    plt.tight_layout()
+    plt.show()
+
+
+    #drawPlot(image)
 
 def processOne(number):
-    filename = "1" #"samolot%02d" % number
-    image = readImage(filename)
-    contour = contourDetector(image)
-    #displaySaveImage([contour], filename, resolution=100)
 
+    image = readImage(number)
+    contour = detector_canny(image)
+
+
+#porównać histogramy 1 i 2
 def colorThreshold(image, t):
-    processed = (image > t) * 1
+    processed = image > t
     flush_figures()
     return processed
 
@@ -127,22 +133,11 @@ def getMax(image):
     return maxV
 
 def readImage(name):
-    return  io.imread("data/{img}.JPG".format(img = name))
+    return  io.imread("data/old/{img}.png".format(img = name))
 
-def displaySaveImage(imgs, filename = "planes.png", resolution = 500):
-    fig = figure(figsize=(20,20))
-    if len(imgs) == 1:
-        rows = 1
-    else:
-        rows = int(len(imgs)/2 +1)
-    for i in range(0, len(imgs)):
-        subplot(rows, 2, i+1)
-        io.imshow(imgs[i])
-    fig.savefig("out/"+filename, dpi=resolution)
 def main():
-    #processAll()
-    processOne(1)
-    #[processOne(num) for num in range(0,21)]
+    processOne(3)
+    #[processOne(i) for i in range(1,5)]
 
 if __name__ == "__main__":
     main()

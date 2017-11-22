@@ -241,10 +241,13 @@ def findContours(img, number):
     ax.imshow(img, interpolation='nearest', cmap=plt.cm.gray)
     iter = 0
     for n, contour in enumerate(cleaned):
-        if iter > 0:
-            break
+
         fig, ax = plt.subplots()
-        contour = flip_pixels(contour, (int(np.mean(contour[:,0])), int(np.mean(contour[:,1]))))
+        #y
+        perc1 = int(np.percentile(contour[:,0], 70))
+        #x
+        perc2 = int(np.percentile(contour[:,1], 30))
+        contour = flip_pixels(contour, (perc2, perc1))
 
         text, percent = circle_detector(contour[:, 1], contour[:, 0], iter)
 
@@ -257,7 +260,7 @@ def findContours(img, number):
         #plt.show()
         #flush_figures()
         #plt.savefig("out/{}_detected.png".format(iter))
-
+        break
 
         iter += 1
     ax.axis('image')
@@ -265,33 +268,6 @@ def findContours(img, number):
     ax.set_yticks([])
     plt.show()
     #plt.savefig("out/{}_detected.png".format(number))
-
-
-#img - image after canny
-def hough_circles_detector(img, oryg):
-    hough_radii = np.arange(30, 140, 20)
-    hough_res = hough_circle(img, hough_radii)
-
-    # Select the most prominent 5 circles
-    accums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii,
-                                           total_num_peaks=3)
-
-    # Draw them
-    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(10, 4))
-    iter = 1
-    for center_y, center_x, radius in zip(cy, cx, radii):
-        iter+=1
-        circy, circx = circle_perimeter(center_y, center_x, radius)
-        if len(oryg[circy, circx][0]) == 4:
-            oryg[circy, circx] = [220, 20, 20, 255]
-        else:
-            oryg[circy, circx] = [220, 20, 20]
-
-
-
-    print("Found ", iter, " circles")
-    ax.imshow(oryg)
-    plt.show()
 
 def flip_pixels(contours, mean_point):
     new_contours = np.zeros((2*len(contours), 2))
